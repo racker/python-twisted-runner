@@ -1,0 +1,121 @@
+#! /usr/bin/make -f
+
+SHELL = /bin/bash
+
+# all versions
+PYVERS	:= $(shell pyversions -vs)
+VER	:= $(shell /usr/bin/python -c 'import sys; print sys.version[:3]')
+
+build: build-stamp
+build-arch: build-stamp
+build-indep: build-stamp
+build-stamp: $(PYVERS:%=build-python%) $(PYVERS:%=dbg-build-python%)
+	touch $@
+build-python%:
+	python$* setup.py build
+	touch $@
+dbg-build-python%:
+	python$*-dbg setup.py build
+	touch $@
+
+clean:
+	rm -rf *-stamp build-python* dbg-build-python* build
+	rm -rf $(addprefix debian/,$(packages)) debian/files debian/substvars
+	rm -rf _trial_temp test.log
+	rm -f twisted/plugins/dropin.cache
+	find . -name "*.pyc" |xargs -r rm
+	dh_clean
+
+install: build-stamp install-prereq $(PYVERS:%=install-python%) $(PYVERS:%=dbg-install-python%) install-nover
+
+install-prereq: build-stamp
+	dh_testdir
+	dh_testroot
+	dh_prep
+
+install-python%: install-prereq
+	: # python-twisted-runner
+	python$* setup.py install --root=debian/python-twisted-runner --install-layout=deb
+	-find debian/python-twisted-runner -name '*.py[co]' | xargs rm -f
+
+ifeq (0,1)
+	for i in debian/python$*-twisted-runner/usr/bin/*; do \
+	  mv $$i $${i}$*; \
+	done
+	mkdir -p debian/python$*-twisted-runner/usr/share/man/man1
+	for i in doc/man/*.1; do \
+	  iv=`basename $$i .1`$*.1; \
+	  cp -p $$i debian/python$*-twisted-runner/usr/share/man/man1/$$iv; \
+	done
+endif
+
+	: # Replace all '#!' calls to python with python
+	: # and make them executable
+	for i in `find debian/python-twisted-* -mindepth 3 -type f`; do \
+	  sed '1s,#!.*python[^ ]*\(.*\),#! /usr/bin/python\1,' \
+		$$i > $$i.temp; \
+	  if cmp --quiet $$i $$i.temp; then \
+	    rm -f $$i.temp; \
+	  else \
+	    mv -f $$i.temp $$i; \
+	    chmod 755 $$i; \
+	    echo "fixed interpreter: $$i"; \
+	  fi; \
+	done
+
+dbg-install-python%: install-prereq
+	: # python-twisted-runner-dbg
+	python$*-dbg setup.py install --root=debian/python-twisted-runner-dbg --install-layout=deb
+	find debian/python-*-dbg ! -type d ! -name '*.so' | xargs rm -f
+	find debian/python-*-dbg -depth -empty -exec rmdir {} \;
+
+install-nover:
+ifeq (0,1)
+	: # python-twisted-runner
+	mkdir -p debian/python-twisted-runner/usr/bin
+	for i in debian/python$(VER)-twisted-runner/usr/bin/*; do \
+	  iv=`basename $$i $(VER)`; \
+	  ln -sf $${iv}$(VER) debian/python-twisted-runner/usr/bin/$$iv; \
+	done
+	mkdir -p debian/python-twisted-runner/usr/share/man/man1
+	for i in debian/python$(VER)-twisted-runner/usr/share/man/man1/*; do \
+	  iv=`basename $$i $(VER).1`; \
+	  ln -sf $${iv}$(VER).1.gz \
+	    debian/python-twisted-runner/usr/share/man/man1/$$iv.1.gz; \
+	done
+endif
+
+binary-indep: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs -i
+	dh_installdocs -i -A NEWS README
+	dh_installmenu -i
+	dh_compress -i -X.py
+	dh_fixperms -i
+	DH_PYCENTRAL=include-links dh_pycentral -i
+	dh_installdeb -i
+	dh_gencontrol -i
+	dh_md5sums -i
+	dh_builddeb -i
+
+binary-arch: build install
+	dh_testdir
+	dh_testroot
+	dh_installchangelogs -a -A NEWS README
+	dh_installdocs -a
+	dh_installmenu -a
+	dh_strip -ppython-twisted-runner --dbg-package=python-twisted-runner-dbg
+	rm -rf debian/python-twisted-runner-dbg/usr/share/doc/python-twisted-runner-dbg
+	ln -s python-twisted-runner debian/python-twisted-runner-dbg/usr/share/doc/python-twisted-runner-dbg
+	dh_compress -a -X.py
+	dh_fixperms -a
+	DH_PYCENTRAL=include-links dh_pycentral -a
+	dh_installdeb -a
+	dh_shlibdeps -a
+	dh_gencontrol -a
+	dh_md5sums -a
+	dh_builddeb -a
+
+binary: binary-indep binary-arch
+.PHONY: build clean binary-indep binary-arch binary install install-nover install-prereq
