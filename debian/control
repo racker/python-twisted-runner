@@ -3,13 +3,13 @@ Section: python
 Priority: optional
 Maintainer: Matthias Klose <doko@debian.org>
 Uploaders: Free Ekanayaka <freee@debian.org>
-Build-Depends: debhelper (>=7.0.50~), python-central (>= 0.6.11), python-all-dev, python-all-dbg, python-twisted-core (>= 12.0), patch
+Build-Depends: debhelper (>=7.0.50~), python-central (>= 0.6.11), python-all-dev, python-all-dbg, python-twisted-core (>= 12.1), patch
 XS-Python-Version: >= 2.4
 Standards-Version: 3.9.2
 
 Package: python-twisted-runner
 Architecture: any
-Depends: ${python:Depends}, python-twisted-core (>= 12.0), ${shlibs:Depends}, ${misc:Depends}
+Depends: ${python:Depends}, python-twisted-core (>= 12.1), ${shlibs:Depends}, ${misc:Depends}
 Conflicts: python2.3-twisted-runner, python2.4-twisted-runner, python2.3-twisted-bin, python2.4-twisted-bin
 Replaces: python2.3-twisted-runner, python2.4-twisted-runner, python2.3-twisted-bin, python2.4-twisted-bin
 Provides: ${python:Provides}
